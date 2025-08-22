@@ -4,26 +4,58 @@
 // We need to use a fetch library that works in a Node.js environment.
 const fetch = require('node-fetch');
 
-exports.handler = async function(event, context) {
-    // --- Configuration from the API Guide ---
-    const apiUrl = 'https://web-production-dc5de.up.railway.app/api/runsAUS/?year=2025';
-    
-    // IMPORTANT: The API token is stored securely as an environment variable in Netlify.
-    // It is never exposed to the user's browser.
-    const apiToken = process.env.API_TOKEN;
-    // -----------------------------------------
+// --- Configuration from the API Guide ---
+const runsApiUrl = 'https://web-production-dc5de.up.railway.app/api/runsAUS/?year=2025';
+const loginApiUrl = 'https://web-production-dc5de.up.railway.app/api/auth/login/';
 
+// IMPORTANT: The API credentials are now stored securely as environment variables in Netlify.
+const apiUsername = process.env.API_USERNAME;
+const apiPassword = process.env.API_PASSWORD;
+// -----------------------------------------
+
+/**
+ * This function authenticates with the API to get a fresh, valid token.
+ */
+async function getNewToken() {
+    const response = await fetch(loginApiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            username: apiUsername,
+            password: apiPassword,
+        }),
+    });
+
+    if (!response.ok) {
+        throw new Error(`Authentication failed with status: ${response.status}`);
+    }
+
+    const loginData = await response.json();
+    
+    // The API documentation implies the token is in a 'token' field.
+    // Adjust if the actual field name is different (e.g., 'access_token').
+    if (!loginData.token) {
+        throw new Error('Token not found in login response.');
+    }
+    
+    return loginData.token;
+}
+
+
+exports.handler = async function(event, context) {
     try {
-        const response = await fetch(apiUrl, {
+        // Step 1: Get a fresh token on every request.
+        const freshToken = await getNewToken();
+
+        // Step 2: Use the new token to fetch the slalom data.
+        const response = await fetch(runsApiUrl, {
             method: 'GET',
             headers: {
-                // The server-side function securely adds the authorization header.
-                'Authorization': `Token ${apiToken}`
+                'Authorization': `Token ${freshToken}`
             }
         });
 
         if (!response.ok) {
-            // If the API returns an error, pass it back to the front-end.
             return {
                 statusCode: response.status,
                 body: JSON.stringify({ error: `API request failed: ${response.statusText}` })
@@ -32,7 +64,7 @@ exports.handler = async function(event, context) {
 
         const data = await response.json();
 
-        // If successful, return a 200 OK status and the data as a JSON string.
+        // Step 3: Return the data to the front-end.
         return {
             statusCode: 200,
             body: JSON.stringify(data)
@@ -42,7 +74,7 @@ exports.handler = async function(event, context) {
         console.error('Error in Netlify function:', error);
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: 'An internal server error occurred.' })
+            body: JSON.stringify({ error: error.message || 'An internal server error occurred.' })
         };
     }
 };
