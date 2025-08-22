@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slalom Data Viewer</title>
+    <!-- Basic styling for a clean look -->
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            background-color: #f4f7f9;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+        h1 {
+            color: #1a2b4d;
+            border-bottom: 2px solid #eef2f7;
+            padding-bottom: 10px;
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #fff;
+            background-color: #007bff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+        #results {
+            margin-top: 20px;
+            padding: 0;
+            list-style-type: none;
+        }
+        #results li {
+            background-color: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            border-left: 4px solid #007bff;
+        }
+        .status {
+            margin-top: 20px;
+            font-style: italic;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Unique Competitions in 2025</h1>
+        <p>Click the button below to fetch all slalom run data for the year 2025 and display a list of unique competition names found in the data.</p>
+        
+        <button id="fetchButton">Fetch Competitions</button>
+        
+        <div id="status" class="status"></div>
+        <ul id="results">
+            <!-- Unique competition names will be inserted here -->
+        </ul>
+    </div>
+
+    <script>
+        document.getElementById('fetchButton').addEventListener('click', fetchUniqueCompetitions);
+
+        async function fetchUniqueCompetitions() {
+            const resultsList = document.getElementById('results');
+            const statusDiv = document.getElementById('status');
+            
+            resultsList.innerHTML = '';
+            statusDiv.textContent = 'Fetching data...';
+
+            // This URL now points to YOUR Netlify Function, not the external API.
+            // This completely avoids any browser CORS issues.
+            const apiUrl = '/.netlify/functions/getSlalomData';
+
+            try {
+                // Fetch data from our own serverless function
+                const response = await fetch(apiUrl);
+
+                if (!response.ok) {
+                    throw new Error(`Request failed with status: ${response.status}`);
+                }
+
+                const allRuns = await response.json();
+                const uniqueCompetitions = new Set(allRuns.map(run => run.competition));
+
+                if (uniqueCompetitions.size === 0) {
+                    statusDiv.textContent = 'API call was successful, but no competitions were found for 2025.';
+                    return;
+                }
+
+                statusDiv.textContent = `Found ${uniqueCompetitions.size} unique competitions:`;
+
+                uniqueCompetitions.forEach(competitionName => {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = competitionName;
+                    resultsList.appendChild(listItem);
+                });
+
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                statusDiv.innerHTML = `<strong>Error:</strong> ${error.message}.`;
+            }
+        }
+    </script>
+
+</body>
+</html>
