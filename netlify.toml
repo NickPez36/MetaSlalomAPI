@@ -1,0 +1,11 @@
+# This file configures how Netlify builds and deploys your site.
+
+[build]
+  # This tells Netlify where your serverless functions are located.
+  functions = "netlify/functions"
+
+# This is a rule that makes the function accessible from the front-end.
+[[redirects]]
+  from = "/.netlify/functions/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
