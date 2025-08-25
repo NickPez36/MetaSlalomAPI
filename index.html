@@ -4,14 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Slalom Data Viewer</title>
-    <!-- Styling for a clean, modern look -->
+    <!-- Basic styling for a clean look -->
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             line-height: 1.6;
             background-color: #f4f7f9;
             color: #333;
-            max-width: 960px;
+            max-width: 800px;
             margin: 0 auto;
             padding: 20px;
         }
@@ -19,8 +19,7 @@
             background-color: #ffffff;
             padding: 25px;
             border-radius: 12px;
-            box-shadow: 0 4px
-            12px rgba(0, 0, 0, 0.08);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
         }
         h1 {
             color: #1a2b4d;
@@ -39,272 +38,91 @@
             border-radius: 8px;
             cursor: pointer;
             transition: background-color 0.3s ease, transform 0.1s ease;
-            margin-bottom: 20px;
         }
         button:hover {
             background-color: #0056b3;
         }
-        .filters {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
+        button:active {
+            transform: scale(0.98);
         }
-        .filter-group {
-            flex: 1;
-            min-width: 200px;
+        #results {
+            margin-top: 20px;
+            padding: 0;
+            list-style-type: none;
         }
-        label {
-            display: block;
-            font-weight: bold;
-            margin-bottom: 5px;
-            color: #555;
-        }
-        select {
-            width: 100%;
-            padding: 10px;
+        #results li {
+            background-color: #f8f9fa;
+            padding: 10px 15px;
             border-radius: 6px;
-            border: 1px solid #ccc;
-            background-color: #fff;
-            font-size: 16px;
-        }
-        .hidden {
-            display: none;
+            margin-bottom: 8px;
+            border-left: 4px solid #007bff;
         }
         .status {
             margin-top: 20px;
             font-style: italic;
             color: #666;
         }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-        th {
-            background-color: #f8f9fa;
-            font-weight: bold;
-        }
-        tr:hover {
-            background-color: #f1f1f1;
-        }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>Slalom Data Explorer</h1>
-        <p>Load the 2025 data, then use the dropdowns to filter the results.</p>
+        <h1>Unique Competitions in 2025</h1>
+        <p>Click the button below to fetch all slalom run data for the year 2025 and display a list of unique competition names to see if new data has been added.</p>
         
-        <button id="loadDataButton">Load 2025 Data</button>
-        
-        <div id="filtersContainer" class="filters hidden">
-            <div id="competitionFilter" class="filter-group hidden">
-                <label for="competitionSelect">Competition</label>
-                <select id="competitionSelect"></select>
-            </div>
-            <div id="classFilter" class="filter-group hidden">
-                <label for="classSelect">Class</label>
-                <select id="classSelect"></select>
-            </div>
-            <div id="phaseFilter" class="filter-group hidden">
-                <label for="phaseSelect">Phase</label>
-                <select id="phaseSelect"></select>
-            </div>
-        </div>
+        <button id="fetchButton">Fetch Competitions</button>
         
         <div id="status" class="status"></div>
-
-        <div id="resultsContainer" class="hidden">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Rank</th>
-                        <th>Athlete</th>
-                        <th>Country</th>
-                        <th>Time</th>
-                        <th>Penalties</th>
-                    </tr>
-                </thead>
-                <tbody id="resultsBody">
-                    <!-- Filtered data will be inserted here -->
-                </tbody>
-            </table>
-        </div>
+        <ul id="results">
+            <!-- Unique competition names will be inserted here -->
+        </ul>
     </div>
 
     <script>
-        // Store all the fetched data globally to avoid re-fetching
-        let allRunsData = [];
+        document.getElementById('fetchButton').addEventListener('click', fetchUniqueCompetitions);
 
-        // Get references to all the interactive elements
-        const loadDataButton = document.getElementById('loadDataButton');
-        const statusDiv = document.getElementById('status');
-        
-        const filtersContainer = document.getElementById('filtersContainer');
-        const competitionFilter = document.getElementById('competitionFilter');
-        const classFilter = document.getElementById('classFilter');
-        const phaseFilter = document.getElementById('phaseFilter');
+        async function fetchUniqueCompetitions() {
+            const resultsList = document.getElementById('results');
+            const statusDiv = document.getElementById('status');
+            
+            resultsList.innerHTML = '';
+            statusDiv.textContent = 'Fetching data...';
+            document.getElementById('fetchButton').disabled = true;
 
-        const competitionSelect = document.getElementById('competitionSelect');
-        const classSelect = document.getElementById('classSelect');
-        const phaseSelect = document.getElementById('phaseSelect');
-
-        const resultsContainer = document.getElementById('resultsContainer');
-        const resultsBody = document.getElementById('resultsBody');
-
-        // --- EVENT LISTENERS ---
-        loadDataButton.addEventListener('click', fetchAllData);
-        competitionSelect.addEventListener('change', handleCompetitionChange);
-        classSelect.addEventListener('change', handleClassChange);
-        phaseSelect.addEventListener('change', handlePhaseChange);
-
-        /**
-         * Fetches all data from the Netlify function when the button is clicked.
-         */
-        async function fetchAllData() {
-            statusDiv.textContent = 'Fetching all 2025 data...';
-            loadDataButton.disabled = true;
+            const apiUrl = '/.netlify/functions/getSlalomData';
 
             try {
-                const response = await fetch('/.netlify/functions/getSlalomData');
+                const response = await fetch(apiUrl);
+
                 if (!response.ok) {
-                    throw new Error(`Request failed with status: ${response.status}`);
+                    const errorBody = await response.json();
+                    throw new Error(`Request failed with status: ${response.status}. ${errorBody.error || ''}`);
                 }
-                allRunsData = await response.json();
+
+                const allRuns = await response.json();
                 
-                statusDiv.textContent = 'Data loaded successfully. Please select a competition.';
-                loadDataButton.classList.add('hidden'); // Hide the button
-                filtersContainer.classList.remove('hidden'); // Show the filter area
-                populateCompetitionSelect();
+                // Use a Set to automatically get unique competition names, then sort them.
+                const uniqueCompetitions = [...new Set(allRuns.map(run => run.competition))].sort();
+
+                if (uniqueCompetitions.length === 0) {
+                    statusDiv.textContent = 'API call was successful, but no competitions were found for 2025.';
+                    return;
+                }
+
+                statusDiv.textContent = `Found ${uniqueCompetitions.length} unique competitions:`;
+
+                uniqueCompetitions.forEach(competitionName => {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = competitionName;
+                    resultsList.appendChild(listItem);
+                });
 
             } catch (error) {
                 console.error('Error fetching data:', error);
                 statusDiv.innerHTML = `<strong>Error:</strong> ${error.message}.`;
-                loadDataButton.disabled = false;
+            } finally {
+                document.getElementById('fetchButton').disabled = false;
             }
-        }
-
-        /**
-         * Populates the first dropdown with unique competitions.
-         */
-        function populateCompetitionSelect() {
-            const uniqueCompetitions = [...new Set(allRunsData.map(run => run.competition))].sort();
-            competitionSelect.innerHTML = '<option value="">-- Select Competition --</option>';
-            uniqueCompetitions.forEach(comp => {
-                const option = document.createElement('option');
-                option.value = comp;
-                option.textContent = comp;
-                competitionSelect.appendChild(option);
-            });
-            competitionFilter.classList.remove('hidden');
-        }
-
-        /**
-         * Handles the change event for the competition dropdown.
-         */
-        function handleCompetitionChange() {
-            const selectedCompetition = competitionSelect.value;
-            // Reset and hide subsequent filters and results
-            classFilter.classList.add('hidden');
-            phaseFilter.classList.add('hidden');
-            resultsContainer.classList.add('hidden');
-            classSelect.innerHTML = '';
-            phaseSelect.innerHTML = '';
-
-            if (selectedCompetition) {
-                const filteredByComp = allRunsData.filter(run => run.competition === selectedCompetition);
-                const uniqueClasses = [...new Set(filteredByComp.map(run => run.class))].sort();
-                
-                classSelect.innerHTML = '<option value="">-- Select Class --</option>';
-                uniqueClasses.forEach(cls => {
-                    const option = document.createElement('option');
-                    option.value = cls;
-                    option.textContent = cls;
-                    classSelect.appendChild(option);
-                });
-                classFilter.classList.remove('hidden');
-            }
-        }
-
-        /**
-         * Handles the change event for the class dropdown.
-         */
-        function handleClassChange() {
-            const selectedCompetition = competitionSelect.value;
-            const selectedClass = classSelect.value;
-            // Reset and hide subsequent filters and results
-            phaseFilter.classList.add('hidden');
-            resultsContainer.classList.add('hidden');
-            phaseSelect.innerHTML = '';
-
-            if (selectedClass) {
-                const filteredByCompAndClass = allRunsData.filter(run => run.competition === selectedCompetition && run.class === selectedClass);
-                const uniquePhases = [...new Set(filteredByCompAndClass.map(run => run.phase))].sort();
-
-                phaseSelect.innerHTML = '<option value="">-- Select Phase --</option>';
-                uniquePhases.forEach(phase => {
-                    const option = document.createElement('option');
-                    option.value = phase;
-                    option.textContent = phase;
-                    phaseSelect.appendChild(option);
-                });
-                phaseFilter.classList.remove('hidden');
-            }
-        }
-
-        /**
-         * Handles the change event for the phase dropdown and displays the final results.
-         */
-        function handlePhaseChange() {
-            const selectedCompetition = competitionSelect.value;
-            const selectedClass = classSelect.value;
-            const selectedPhase = phaseSelect.value;
-            resultsContainer.classList.add('hidden');
-
-            if (selectedPhase) {
-                const finalFilteredData = allRunsData.filter(run => 
-                    run.competition === selectedCompetition && 
-                    run.class === selectedClass && 
-                    run.phase === selectedPhase
-                );
-                displayResults(finalFilteredData);
-            }
-        }
-
-        /**
-         * Renders the final filtered data into the HTML table.
-         * @param {Array} data - The array of run objects to display.
-         */
-        function displayResults(data) {
-            resultsBody.innerHTML = ''; // Clear previous results
-
-            if (data.length === 0) {
-                statusDiv.textContent = 'No data found for the selected filters.';
-                return;
-            }
-
-            statusDiv.textContent = `Displaying ${data.length} results.`;
-            data.sort((a, b) => a.rank - b.rank); // Sort by rank
-
-            data.forEach(run => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${run.rank}</td>
-                    <td>${run.athlete_name}</td>
-                    <td>${run.country}</td>
-                    <td>${run.total_time}</td>
-                    <td>${run.total_penalties}</td>
-                `;
-                resultsBody.appendChild(row);
-            });
-
-            resultsContainer.classList.remove('hidden');
         }
     </script>
 
